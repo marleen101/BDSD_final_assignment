@@ -1,0 +1,124 @@
+---
+title: "Final assignment"
+format: pdf
+editor: visual
+---
+
+### **Loading packages**
+
+```{r Loading packages, message=FALSE, warning=FALSE}
+#install.packages(c("tidyverse", "curl", "stm", "reshape2"))
+library(tidyverse)
+library(readr)
+library(curl)
+library(stm)
+library(reshape2)
+
+```
+
+### **Importing data**
+
+#### **From Github**
+
+```{r from github}
+
+data_climatechange <- read_csv("https://raw.githubusercontent.com/marleen101/BDSD_final_assignment/refs/heads/main/Data/data_climatechange.csv")
+
+```
+
+### **Prepare the data set**
+
+```{r preparing the dataset}
+#combining the title and the self text of each post in one variable
+data_climatechange$text_all <- paste(data_climatechange$title,
+                                     data_climatechange$selftext,
+                                     sep = "\n")
+
+#date variable, UTC time zone
+data_climatechange <- data_climatechange %>%
+  mutate(date = format(
+    as.POSIXct(created_utc, origin = "1970-01-01", tz = "UTC"),
+    "%Y-%m-%d %H:%M:%S"
+  ))
+
+
+#process for topic modelling
+processed <- textProcessor(data_climatechange$text_all, metadata = data_climatechange) 
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
+
+
+```
+
+5 documents are removed, as there were no characters there anymore after stemming, removing stop words, punctuation, numbers, lowercase etc.
+
+### **analysis**
+
+```{r amounts of topics for topic modelling}
+set.seed(159)
+
+# Criteria amount of topics with Coherence and Exclusivity
+
+K_climate <- seq(10,60,by = 10) # for calculating the exclusivity and coherence with 10 till 60 topics, with the increment of the sequence of 10.
+
+
+#code underneath is for creating different models with different amount of topics. It is possible to download the R Data file via the github page to save some time. The file is placed under the map Data and Topic model (file "fit_climate.rds").
+
+####fit_climate <- searchK(processed$documents, processed$vocab, K= K_climate)
+#fit_climate <- readRDS("fit_climate.rds")
+
+# Making the scores of Coherence and Exclusivity for each amount of topic
+plot_climate <- data.frame("K" = K_climate, 
+                   "Coherence" = unlist(fit_climate$results$semcoh),
+                   "Exclusivity" = unlist(fit_climate$results$exclus))
+
+plot_climate <- melt(plot_climate, id=c("K"))
+plot_climate
+climate_wider <- pivot_wider(plot_climate, names_from = variable, values_from = value)
+
+#Plot results of the Coherence and Exclusivity
+# Axis ranges
+ylim_prim <- range(climate_wider$Coherence)
+ylim_sec  <- range(climate_wider$Exclusivity)
+
+# Scaling parameters
+b <- diff(ylim_prim) / diff(ylim_sec)
+a <- ylim_prim[1] - b * ylim_sec[1]
+
+ggplot(climate_wider, aes(x = K)) +
+  geom_line(aes(y = Coherence, color = "Coherence"), linewidth = 1) +
+  geom_point(aes(y = Coherence, color = "Coherence"), size = 2) +
+  geom_line(aes(y = Exclusivity * b + a, color = "Exclusivity"), linewidth = 1) +
+  geom_point(aes(y = Exclusivity * b + a, color = "Exclusivity"), size = 2) +
+  scale_y_continuous(
+    name = "Coherence",
+    sec.axis = sec_axis(~ (. - a)/b, name = "Exclusivity")
+  ) +
+  scale_color_manual(values = c("Coherence" = "coral2", "Exclusivity" = "seagreen3")) +
+  labs(
+    title = "Topic Model Diagnostics",
+    x = "Number of Topics (K)",
+    color = ""
+  ) +
+  theme(legend.position = "bottom")
+
+
+```
+
+amount of topics 35, because this way we minimize the reducement of coherence, but still have the highest exclusivity rate.
+
+```{r topic modelling}
+set.seed(159)
+
+
+##to save time, it is also possible to download the rds file of topic_model on the github page and import it with the code underneath the topic modelling code. 
+#topic_model <- stm(documents = out$documents,
+#         vocab = out$vocab, 
+#         K = 35,
+#        verbose = TRUE)
+
+##topic_model <- readRDS("topic_model.rds")
+
+
+
+
+```
