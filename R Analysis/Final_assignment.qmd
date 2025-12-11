@@ -109,7 +109,6 @@ amount of topics 35, because this way we minimize the reducement of coherence, b
 ```{r topic modelling}
 set.seed(159)
 
-
 ##to save time, it is also possible to download the rds file of topic_model on the github page and import it with the code underneath the topic modelling code. 
 #topic_model <- stm(documents = out$documents,
 #         vocab = out$vocab, 
@@ -119,6 +118,31 @@ set.seed(159)
 ##topic_model <- readRDS("topic_model.rds")
 
 
+theta <- make.dt(topic_model)
+data_climatechange$Topic <- NA 
+
+for (i in 1:nrow(data_climatechange)){
+  column <- theta[i,-1]
+  maintopic <- colnames(column)[which(column==max(column))]
+  data_climatechange$Topic[i] <- maintopic
+}
+
+freq(data_climatechange$Topic)
+
+out[["docs.removed"]]
+data_climatechange$text_all[c(1288,7407,7725,8252,8891)]
+
 
 
 ```
+
+
+
+
+
+
+
+
+
+
+
