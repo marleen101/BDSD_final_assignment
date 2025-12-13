@@ -13,6 +13,7 @@ library(readr)
 library(curl)
 library(stm)
 library(reshape2)
+library(stringr)
 
 ```
 
@@ -129,10 +130,21 @@ for (i in 1:nrow(data_climatechange)){
 
 freq(data_climatechange$Topic)
 
+#mean, standard deviation and median of the amount of words per posts per topic
+data_climatechange %>%
+  group_by(Topic)%>%
+  summarise(mean = round(mean(str_count(text_all ,"\\W+")),2), 
+            sd = round(sd(str_count(text_all ,"\\W+")),2),
+            median = round(median(str_count(text_all, "\\W+")),2))
+
+
+#cor plot
+cor <- topicCorr(topic_model)
+plot(cor)
+
+#see which documents were deleted from the process.
 out[["docs.removed"]]
 data_climatechange$text_all[c(1288,7407,7725,8252,8891)]
-
-
 
 ```
 
