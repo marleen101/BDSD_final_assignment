@@ -138,6 +138,15 @@ data_climatechange %>%
             median = round(median(str_count(text_all, "\\W+")),2))
 
 
+
+#the 15 top words of the topics
+labels <- labelTopics(topic_model, n=15)
+topwords <- data.frame("features"= t(labels$frex))
+colnames(topwords)<- paste("Topic", c(1:35))
+
+#plot topics
+plot(topic_model)
+
 #cor plot
 cor <- topicCorr(topic_model)
 plot(cor)
@@ -145,6 +154,8 @@ plot(cor)
 #see which documents were deleted from the process.
 out[["docs.removed"]]
 data_climatechange$text_all[c(1288,7407,7725,8252,8891)]
+
+
 
 ```
 
