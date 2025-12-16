@@ -4,10 +4,19 @@ format: pdf
 editor: visual
 ---
 
+# Final assignment BDSD
+
+This is the Quarto file with the code for all the analysis done in the final assignment of Big Data, Small Data. The Github page "BDSD_final_assignment" contains all the files and information needed to follow this analysis. In the README.md file, which can be seen when you open the Github page, is all the information of where everything can be found and further information about the results of the project.
+
+A link to the Github page: https://github.com/marleen101/BDSD_final_assignment/tree/main
+
+In this file, the packages will firstly be installed and activated. Then the data set is imported and processed to work with during the analysis. The analysis will first be topic modelling. After the code for the visualizations for topic modelling, the code will be for collecting a small sample of the whole data set the further dive in to the data for the qualitative part of the study. There will be part to annotate the data and with this annotated data, a machine will be trained and used to annotate the whole data set, which will help us interpret information of the whole data set.
+
 ### **Loading packages**
 
 ```{r Loading packages, message=FALSE, warning=FALSE}
-#install.packages(c("tidyverse", "curl", "stm", "reshape2", "caret", "remotes", "stopwords", "tidytext", "textstem", "stringr", stringi", "xgboost"))
+#install.packages(c("tidyverse", "curl", "stm", "reshape2","stringr", "caret", "stopwords", "tidytext", "textstem", stringi","remotes", "summarytools", "igraph", "ggraph","ggforce","ggwordcloud"))
+library(remotes)
 #remotes::install_github("ccs-amsterdam/annotinder-r")
 library(tidyverse)
 library(readr)
@@ -15,21 +24,22 @@ library(curl)
 library(stm)
 library(reshape2)
 library(stringr)
-library(annotinder)
 library(caret)
 library(stopwords)
 library(tidytext)
 library(textstem)
 library(stringi)
-library(xgboost)
+library(annotinder)
+library(summarytools)
+library(igraph)
+library(ggraph)
+library(ggforce)
+library(ggwordcloud)
 
 
-here??????????
 ```
 
-### **Importing data**
-
-#### **From Github**
+### **Importing data from Github**
 
 ```{r from github}
 
@@ -37,10 +47,12 @@ data_climatechange <- read_csv("https://raw.githubusercontent.com/marleen101/BDS
 
 ```
 
+This code will import data via the Github page made for this project. However, it is also possible to download the data from the Github page and import it manually by yourself. Look at the README.md file for further information on where the data set is stored on the page. The data from the individual subreddits can also be found in the same place.
+
 ### **Prepare the data set**
 
 ```{r preparing the dataset}
-#combining the title and the self text of each post in one variable
+#Combining the title and the self text of each post in one variable
 data_climatechange$text_all <- paste(data_climatechange$title,
                                      data_climatechange$selftext,
                                      sep = "\n")
@@ -59,9 +71,11 @@ out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
 
 ```
 
-5 documents are removed, as there were no characters there anymore after stemming, removing stop words, punctuation, numbers, lowercase etc.
+For the preprocessing of the data set, the title and text of the post is combined in to one variable. Furthermore, is there a data variable made. Lastly, for topic modelling, the texts are processed (removing, for example, pronunciations, stop words, and numbers) and made in to a data frame which can be used for the analysis. This code showed that after processing five documents were removed from the analysis as there were no characters there anymore after stemming, removing stop words, punctuation, numbers.
 
-### **analysis**
+### **Analysis**
+
+#### Topic modelling
 
 ```{r amounts of topics for topic modelling}
 set.seed(159)
@@ -114,7 +128,7 @@ ggplot(climate_wider, aes(x = K)) +
 
 ```
 
-amount of topics 35, because this way we minimize the reducement of coherence, but still have the highest exclusivity rate.
+A model was made to look at the exclusivity and coherence of different model. The different models where models where there are 10, 20, 30, 40, 50, or 60 topics. Looking at the visualization of the exclusivity and coherence of these models, it is decided to choose a model with 35 topics. The visualizations show that between 30 en 40 the exclusivity still increases, but coherence decreases. After 40 the exclusivity is stagnating, which shows that a max of 40 topics is good to have with this model. However, to limit the decrease of coherence, we chose to pick 35 topics. This model ensure that exclusivity is high and that it is not at the expense of the coherence of the model.
 
 ```{r topic modelling}
 set.seed(159)
@@ -124,13 +138,14 @@ set.seed(159)
 #         vocab = out$vocab, 
 #         K = 35,
 #        verbose = TRUE)
-
 topic_model <- readRDS("topic_model.rds")
 
 
 theta <- make.dt(topic_model)
 data_climatechange$Topic <- NA 
 
+
+#there will be an error at the end for this code. No worries, this is caused, because 5 documents were not in the topic modelling as they didn't contain any characters anymore.
 for (i in 1:nrow(data_climatechange)){
   column <- theta[i,-1]
   maintopic <- colnames(column)[which(column==max(column))]
@@ -153,22 +168,203 @@ labels <- labelTopics(topic_model, n=15)
 topwords <- data.frame("features"= t(labels$frex))
 colnames(topwords)<- paste("Topic", c(1:35))
 
-#plot topics
-plot(topic_model)
-
-#cor plot
-cor <- topicCorr(topic_model)
-plot(cor)
-
 #see which documents were deleted from the process.
 out[["docs.removed"]]
 data_climatechange$text_all[c(1288,7407,7725,8252,8891)]
 
 
 
+
 ```
 
+After examining the 20 most prominent posts for each topic and the corresponding top words, each topic was assigned a descriptive label. The labels and top words can be seen in Table 1.
 
+| Topic | Content | Top words |
+|----------------:|----------------------|---------------------------------|
+| 1 | Places | Citi, town, Washington, san, london, York, local, rural, nyc |
+| 2 | Vehicles | Car, bike, child, petrol, idl, drive, parent, walk, truck, great, road |
+| 3 | Extinction (animals) | Nanoparticle, smuggle, ozon, ozone-deplet, livestock, feed, cattl, beef, pig, moor |
+| 4 | Hopeless / doom perspectives | Thing, feel, dont, don’t, think, anyth, doom, els, realli, bad |
+| 5 | Harm of certain kinds of electricity | Mongabay, bio-energi, palm, smil, Vaclav, euro, wri, miner, lithium, iea |
+| 6 | Projects and studies for moderating climate change | Contruct, build, concret, paint, visibl, nich, network, homeown, recurs |
+| 7 | Rising sea levels (melting ice/glaciers) | Glacier, ice, melt, sea, permafrost, sheer, antarctica, meter, arctic, antarct |
+| 8 | Business investing in sustainability | Busi, money, company, fight, non-profit, chariti, sustain, credit, volunt, organ |
+| 9 | Warming of 1.5 / 2 degrees Celsius | Ipcc, tip, report, warm, global, celsius, decad, degree, point, trajectori |
+| 10 | Aviation (celebrities) | Cruis, elon, travel, plane, flight, fli, aviat, train, musk, richest |
+| 11 | Coronavirus | Que, cambio, covid--, mundo, pandem, virus, covid, coronavirus, esto, breath |
+| 12 | American politics | Elect, court, senat, voter, vote, trump, republican, presidenti, biden, administr |
+| 13 | Oceans | Coral, invas, reef, speci, habitat, extinct, ecosystem, whale, ending, fish |
+| 14 | Moral and ethical reflection | Society, moral, solv, cultur, politician, existenti, acknowledge, modern, greed |
+| 15 | Critique of fossil fuels | Cop, fossil, fuel, confer, militari, oil, summit, leader, minist, host |
+| 16 | Respondent recruitment | Survey, app, quastionnair, particip, interview, user, email, share, server, minut |
+| 17 | Change in weather | Amok, atlant, stream, northern, gulf, rainfall, hemisphere, southern, circul, merdion |
+| 18 | Alternative energy | Nuclear, reactor, hydrogen, power, uranium, solar, energi, kwh, renew, panel |
+| 19 | Wanting to learn more | Chang, climat, combat, effect, affect, impact, posit, mitig, discuss, issu |
+| 20 | Data | Model, data, graph, accur, rcp, observ, confid, predict, map, correl |
+| 21 | Careers and degrees | Career, podcast, book, recommend, advic, college, fiction, episode, skill, master |
+| 22 | Carbon | Dac, carbon, captur, offset, footprint, gwp, neutral, methan, ghg, dioxid |
+| 23 | Natural disasters | Hurricane, wilfir, fire, flood, strom, drought, tornado, helen, disast, valley |
+| 24 | Innovations for managing climate change | Strategi, challang, innov, ensur, secur, develop, sector, integr, crucial, econom |
+| 25 | Trees | Tree, Ecosia, amazon, rainforest, forest, soil, deforest, harvest, fertile, plant |
+| 26 | Cooling devices | Hot, heat, wave, hotter, humid, outisd, summer, pump, cold, cooler |
+| 27 | Temperature records | Mayhem, warmest, abrupt, record, februari, niño, video, hottest |
+| 28 | Country-level climate information | Country, capita, india, china, price, per, trillion, tonn, total, billion |
+| 29 | Climate scepticism discussion | Argument, denier, claim, debat, convinc, denial, deni, debunk, skeptic, alarmist |
+| 30 | Seasonal change patterns | Snow, ago, week, last spring, rememb, year, lake, normal, coupl |
+| 31 | Sustainable alternative products | Reusable, groceri, bag, package, landfill, plastic, trash, wast, reus, item |
+| 32 | Future outlooks | Will, future, happen, worst, realist, term, soon, becom, eventu, live |
+| 33 | Recommendations to learn more | Anyon, guy, look, question, read, wonder, find, thought, topic, ask |
+| 34 | Atmospheric composition | Radiat, cloud, geoengin, aerosol, ppm, concentr, vapor, erupt, volcano |
+| 35 | Solutions for climate change | World, crisi, save, face, moment, bring, need, biggest, cricl, globe |
+
+: Table 1: Thematic content of the topics
+
+#### **Visualizations topic modelling**
+
+```{r visualizations}
+#Plot topics
+plot(topic_model)
+
+#Correlation plot
+cor <- topicCorr(topic_model)
+#simple network
+plot(cor)
+
+#Network analysis with clusters
+network <- cor$cor
+network_pos <- network
+network_pos[network_pos < 0] <- 0
+
+for_network_plot <- graph_from_adjacency_matrix(
+  network_pos,
+  mode = "undirected",
+  weighted = TRUE,
+  diag = FALSE)
+
+cluster_manual <- c(
+  "1" = "Society and governance",
+  "2" = "Technological and mitigation innovations",
+  "3" = "Ecosystems",
+  "4" = "Emotions",
+  "5" = "Technological and mitigation innovations",
+  "6" = "Technological and mitigation innovations",
+  "7" = "Changing weather and atmospheric processes",
+  "8" = "Society and governance",
+  "9" = "Changing weather and atmospheric processes",
+  "10"= "Technological and mitigation innovations",
+  "11"= "Society and governance",
+  "12"= "Society and governance",
+  "13"= "Ecosystems",
+  "14"= "Emotions",
+  "15"= "Technological and mitigation innovations",
+  "16"= "Information seeking and professional engagement",
+  "17"= "Changing weather and atmospheric processes",
+  "18"= "Technological and mitigation innovations",
+  "19"= "Information seeking and professional engagement",
+  "20"= "Information seeking and professional engagement",
+  "21"= "Information seeking and professional engagement",
+  "22"= "Technological and mitigation innovations",
+  "23"= "Changing weather and atmospheric processes",
+  "24"= "Technological and mitigation innovations",
+  "25"= "Ecosystems",
+  "26"= "Changing weather and atmospheric processes",
+  "27"= "Changing weather and atmospheric processes",
+  "28"= "Society and governance",
+  "29"= "Information seeking and professional engagement",
+  "30"= "Changing weather and atmospheric processes",
+  "31"= "Technological and mitigation innovations",
+  "32"= "Emotions",
+  "33"= "Information seeking and professional engagement",
+  "34"= "Changing weather and atmospheric processes",
+  "35"= "Emotions")
+
+V(for_network_plot)$name <- as.character(1:vcount(for_network_plot))
+V(for_network_plot)$cluster <- cluster_manual[V(for_network_plot)$name]
+V(for_network_plot)$name <- paste0("Topic ", V(for_network_plot)$name)
+
+cluster_colors <- c(
+  "Emotions" = "darkorange",
+  "Society and governance" = "steelblue1",
+  "Information seeking and professional engagement" = "khaki",
+  "Changing weather and atmospheric processes" = "firebrick",
+  "Ecosystems" = "chartreuse2",
+  "Technological and mitigation innovations" = "dodgerblue4")
+
+
+ggraph(for_network_plot, layout = "fr") +
+  geom_edge_link(aes(width = weight), 
+                 alpha = 0.3, 
+                 colour = "grey30") +
+  geom_node_point(aes(color = cluster),
+                  size = 5) +
+  geom_node_text(aes(label = name), 
+                 repel = TRUE, 
+                 size = 3) +
+  geom_mark_hull(aes(x = x, y = y, group = cluster, fill = cluster), 
+                 alpha = 0.3, 
+                 concavity = 1, 
+                 expand =0.03,
+                 color = NA) +
+  scale_color_manual(values = cluster_colors) +
+  scale_fill_manual(values = cluster_colors) 
+
+
+#Wordclouds
+
+labels_wordcloud <- labelTopics(topic_model, n=15)$frex
+topword_wordcloud <- data.frame(labels_wordcloud)
+colnames(topword_wordcloud) <- paste0("Topic_", 1:ncol(topword_wordcloud))
+
+topwords_long <- topwords %>%
+  pivot_longer(
+    cols = everything(), 
+    names_to = "Topic",
+    values_to = "term") %>%
+  group_by(Topic) %>%
+  mutate(word_id = row_number(),      
+         size = 16 - word_id,
+         topic_num = as.numeric(gsub("Topic ", "", Topic)),
+         group = ceiling(topic_num / 9)) %>% 
+  ungroup()
+
+
+# Group 1: Topics 1-9
+topwords_long %>%subset(group == 1)%>%
+  ggplot(aes(label = term, size = size)) +
+  geom_text_wordcloud(area_corr = TRUE) +
+  facet_wrap(~Topic, scales = "free") +
+  scale_size_area(max_size = 12) +
+  labs(title = "Word Clouds for Topics 1-9")
+
+# Group 2: Topics 10-18
+topwords_long %>% subset(group == 2)%>%
+  ggplot(aes(label = term, size = size)) +
+  geom_text_wordcloud(area_corr = TRUE) +
+  facet_wrap(~Topic, scales = "free") +
+  scale_size_area(max_size = 12) +
+  labs(title = "Word Clouds for Topics 10-18")
+
+# Group 3: Topics 19-27
+topwords_long %>% subset(group == 3)%>%
+  ggplot(aes(label = term, size = size)) +
+  geom_text_wordcloud(area_corr = TRUE) +
+  facet_wrap(~Topic, scales = "free") +
+  scale_size_area(max_size = 12) +
+  labs(title = "Word Clouds for Topics 19-27")
+
+# Group 4: Topics 28-35
+topwords_long %>% subset(group == 4)%>%
+  ggplot(aes(label = term, size = size)) +
+  geom_text_wordcloud(area_corr = TRUE) +
+  facet_wrap(~Topic, scales = "free") +
+  scale_size_area(max_size = 12) +
+  labs(title = "Word Clouds for Topics 28-35")
+
+
+
+```
+
+#### **Content analysis**
 
 ```{r selection for qualitative analysis}
 set.seed(159)
@@ -216,7 +412,7 @@ annotated_sample <- sample_annotate %>%
 
 ```
 
-
+#### Code for classification
 
 ```{r training for classification}
 #train model for classifications, the test and train data can be found on github
@@ -327,7 +523,7 @@ control <- trainControl(
 train_model <- train(
   value.y ~ .,
   data = train_ml %>% select(-doc_id),
-  method = "xgboost",  
+  method = "glmnet",  
   trControl = control,
   metric = "ROC"
 )
@@ -340,6 +536,3 @@ confusionMatrix(prediction_model, test_ml$value.y)
 prob <- predict(train_model, test_ml, type = "prob")
 
 ```
-
-
-
