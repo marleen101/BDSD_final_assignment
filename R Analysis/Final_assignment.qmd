@@ -172,8 +172,8 @@ data_climatechange$text_all[c(1288,7407,7725,8252,8891)]
 
 ```{r selection for qualitative analysis}
 set.seed(159)
-#sample of 275 posts, the file of the sample can be downloaded from github
-#sample_annotate <- data_climatechange[sample(nrow(data_climatechange), size =275),]
+#sample of 342 posts, the file of the sample can be downloaded from github
+#sample_annotate <- data_climatechange[sample(nrow(data_climatechange), size =342),]
 sample_annotate <- saveRDS(sample_annotate, "Data/sample_annotate.rds")
 
 
