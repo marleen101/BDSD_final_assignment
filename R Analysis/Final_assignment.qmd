@@ -225,6 +225,7 @@ After examining the 20 most prominent posts for each topic and the corresponding
 #Plot topics
 plot(topic_model)
 
+
 #Correlation plot
 cor <- topicCorr(topic_model)
 #simple network
