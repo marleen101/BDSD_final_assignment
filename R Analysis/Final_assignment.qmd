@@ -7,14 +7,24 @@ editor: visual
 ### **Loading packages**
 
 ```{r Loading packages, message=FALSE, warning=FALSE}
-#install.packages(c("tidyverse", "curl", "stm", "reshape2"))
+#install.packages(c("tidyverse", "curl", "stm", "reshape2", "caret", "remotes", "stopwords", "tidytext", "textstem", "stringr", stringi", "xgboost"))
+#remotes::install_github("ccs-amsterdam/annotinder-r")
 library(tidyverse)
 library(readr)
 library(curl)
 library(stm)
 library(reshape2)
 library(stringr)
+library(annotinder)
+library(caret)
+library(stopwords)
+library(tidytext)
+library(textstem)
+library(stringi)
+library(xgboost)
 
+
+here??????????
 ```
 
 ### **Importing data**
@@ -23,7 +33,7 @@ library(stringr)
 
 ```{r from github}
 
-data_climatechange <- read_csv("https://raw.githubusercontent.com/marleen101/BDSD_final_assignment/refs/heads/main/Data/data_climatechange.csv")
+data_climatechange <- read_csv("https://raw.githubusercontent.com/marleen101/BDSD_final_assignment/refs/heads/main/Data/Data%20Climate%20Change/data_climatechange.csv")
 
 ```
 
@@ -46,7 +56,6 @@ data_climatechange <- data_climatechange %>%
 #process for topic modelling
 processed <- textProcessor(data_climatechange$text_all, metadata = data_climatechange) 
 out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
-
 
 ```
 
@@ -116,7 +125,7 @@ set.seed(159)
 #         K = 35,
 #        verbose = TRUE)
 
-##topic_model <- readRDS("topic_model.rds")
+topic_model <- readRDS("topic_model.rds")
 
 
 theta <- make.dt(topic_model)
@@ -161,11 +170,176 @@ data_climatechange$text_all[c(1288,7407,7725,8252,8891)]
 
 
 
+```{r selection for qualitative analysis}
+set.seed(159)
+#sample of 275 posts, the file of the sample can be downloaded from github
+#sample_annotate <- data_climatechange[sample(nrow(data_climatechange), size =275),]
+sample_annotate <- saveRDS(sample_annotate, "Data/sample_annotate.rds")
+
+
+#for doing a coding job
+units <- create_units(sample_annotate,
+                      id = "id",
+                      set_text("text", text_all))
+
+technique <- question("Neutralization technique", 
+                      "Does this post consist of a neuralization technique?",
+                      codes = c(crimson = "No",
+                                lightgreen = "Yes"))
+
+codebook <- create_codebook(technique)
+
+job <- create_job("codejob_technique", units, codebook)
+job_db <- create_job_db(job, overwrite = T)
+
+start_annotator(job_db)
+
+gimme_annotations(job_db)
+
+
+sample_codejob <- gimme_annotations(job_db)
+sample_codejob <- sample_codejob[,-c(2,3)]
+
+coding <- data.frame(
+  id = sapply(units, `[[`, "id"),
+  text = sapply(units, function(x) x$unit$text_fields[[1]]$value),
+  stringsAsFactors = FALSE
+)
+
+sample <- left_join(coding, sample_codejob, by= "id")
+sample <- sample[,-c(3,4)]
+colnames(sample)<- c("id", "text_all", "value")
+
+annotated_sample <- sample_annotate %>%
+  left_join(sample, by = "id")
+
+
+```
 
 
 
+```{r training for classification}
+#train model for classifications, the test and train data can be found on github
+#divide_test_train <- createDataPartition(annotated_sample$value, p = 0.75, list = FALSE)
+#train <- annotated_sample[divide_test_train,]
+train <- readRDS("train.rds")
+
+#test <- annotated_sample[-divide_test_train,]
+
+test <- readRDS("test.rds")
+
+#the distribution between the two sets
+ggplot() + geom_bar(data = train, aes(x = value), fill = "blue", alpha = .5) + geom_bar(data = test, aes(x = value),fill = "red", alpha = .5) + theme_bw() + labs(color = "Density", title = "Random Sampling (Caret package)",
+    x = "yes/no")
 
 
+#prepping for training and testing
+#cleaning
+tokens_train <- train %>%
+  mutate(text = str_remove_all(text_all, "https?://\\S+")) %>%
+  unnest_tokens(word, text) %>%
+  mutate(
+    word = str_remove_all(word, "@\\S+"),
+    word = str_remove_all(word, "[[:punct:]]"),
+    word = str_remove_all(word, "[[:digit:]]"),
+    word = str_to_lower(word),
+    word = stri_trans_general(word, "Latin-ASCII"),
+    word = str_replace_all(word, "[^a-zA-Z0-9]", "")
+  ) %>%
+  filter(str_detect(word, "\\S")) %>%
+  filter(!word %in% stopwords("en")) %>%
+  mutate(word = lemmatize_words(word))
+
+
+tokens_test <- test %>%
+  mutate(text = str_remove_all(text_all, "https?://\\S+")) %>%
+  unnest_tokens(word, text) %>%
+  mutate(
+    word = str_remove_all(word, "@\\S+"),
+    word = str_remove_all(word, "[[:punct:]]"),
+    word = str_remove_all(word, "[[:digit:]]"),
+    word = str_to_lower(word),
+    word = stri_trans_general(word, "Latin-ASCII"),
+    word = str_replace_all(word, "[^a-zA-Z0-9]", "")
+  ) %>%
+  filter(str_detect(word, "\\S")) %>%
+  filter(!word %in% stopwords("en")) %>%
+  mutate(word = lemmatize_words(word))
+
+#tokens to dtm
+dtm_train <- tokens_train %>%
+  rename(doc_id = id) %>%
+  count(doc_id, word) %>%
+  bind_tf_idf(word, doc_id, n) %>%
+  select(doc_id, word, tf_idf) %>%
+  pivot_wider(
+    names_from = word,
+    values_from = tf_idf,
+    values_fill = 0
+  )
+
+
+dtm_test <- tokens_test %>%
+  rename(doc_id = id) %>%
+  count(doc_id, word) %>%
+  bind_tf_idf(word, doc_id, n) %>%
+  select(doc_id, word, tf_idf) %>%
+  pivot_wider(
+    names_from = word,
+    values_from = tf_idf,
+    values_fill = 0
+  )
+
+
+missing_cols <- setdiff(colnames(dtm_train), colnames(dtm_test))
+
+for (col in missing_cols) {
+  dtm_test[[col]] <- 0
+}
+
+
+#adding the labels
+colnames(train)<- c("doc_id", "subreddit", "created_utc", "author", "title", "selftext","retrieved_on", "score", "url", "text_all", "Topic", "text", "value") 
+
+train_ml <- dtm_train %>%
+  left_join(train %>% select(doc_id, value), by = "doc_id")
+
+colnames(test)<- c("doc_id", "subreddit", "created_utc", "author", "title", "selftext","retrieved_on", "score", "url", "text_all", "Topic", "text", "value") 
+
+test_ml <- dtm_test %>%
+  left_join(test %>% select(doc_id, value), by = "doc_id")
+
+train_ml$value.y <- as.factor(train_ml$value.y)
+test_ml$value.y  <- as.factor(test_ml$value.y)
+
+
+
+control <- trainControl(
+  method = "cv",
+  number = 5,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary, 
+  sampling = "smote"
+)
+
+
+#training
+train_model <- train(
+  value.y ~ .,
+  data = train_ml %>% select(-doc_id),
+  method = "xgboost",  
+  trControl = control,
+  metric = "ROC"
+)
+
+
+#predict and evaluate 
+prediction_model <- predict(train_model, test_ml)
+confusionMatrix(prediction_model, test_ml$value.y)
+
+prob <- predict(train_model, test_ml, type = "prob")
+
+```
 
 
 
