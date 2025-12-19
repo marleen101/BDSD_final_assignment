@@ -458,12 +458,6 @@ Annotated_data_with_text <-  Annotated_combined%>%
   left_join(data_climatechange, by = "id")
 
 
-
-Annotated_data_with_text$text_all[Annotated_data_with_text$value.y =="Condemnation"]
-
-
-
-
 #Visualizations of annotations
 
 ggplot(Annotated_data_with_text)+
