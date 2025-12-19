@@ -15,7 +15,7 @@ In this file, the packages will firstly be installed and activated. Then the dat
 ### **Loading packages**
 
 ```{r Loading packages, message=FALSE, warning=FALSE}
-#install.packages(c("tidyverse", "curl", "stm", "reshape2","stringr", "caret", "stopwords", "tidytext", "textstem", stringi","remotes", "summarytools", "igraph", "ggraph","ggforce","ggwordcloud"))
+#install.packages(c("tidyverse", "curl", "stm", "reshape2","stringr", "caret", "stopwords", "tidytext", "textstem", stringi","remotes", "summarytools", "igraph", "ggraph","ggforce","ggwordcloud", "psych"))
 library(remotes)
 #remotes::install_github("ccs-amsterdam/annotinder-r")
 library(tidyverse)
@@ -35,7 +35,7 @@ library(igraph)
 library(ggraph)
 library(ggforce)
 library(ggwordcloud)
-
+library(psych)
 
 ```
 
@@ -43,7 +43,8 @@ library(ggwordcloud)
 
 ```{r from github}
 
-data_climatechange <- read_csv("https://raw.githubusercontent.com/marleen101/BDSD_final_assignment/refs/heads/main/Data/Data%20Climate%20Change/data_climatechange.csv")
+data_climatechange <- read_csv("https://raw.githubusercontent.com/marleen101/BDSD_final_assignment/refs/heads/main/R%20Analysis/data_climatechange.csv")
+
 
 ```
 
@@ -56,6 +57,10 @@ This code will import data via the Github page made for this project. However, i
 data_climatechange$text_all <- paste(data_climatechange$title,
                                      data_climatechange$selftext,
                                      sep = "\n")
+
+
+
+
 
 #date variable, UTC time zone
 data_climatechange <- data_climatechange %>%
@@ -71,7 +76,7 @@ out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
 
 ```
 
-For the preprocessing of the data set, the title and text of the post is combined in to one variable. Furthermore, is there a data variable made. Lastly, for topic modelling, the texts are processed (removing, for example, pronunciations, stop words, and numbers) and made in to a data frame which can be used for the analysis. This code showed that after processing five documents were removed from the analysis as there were no characters there anymore after stemming, removing stop words, punctuation, numbers.
+For the pre-processing of the data set, the title and text of the post is combined in to one variable. Furthermore, is there a data variable made. Lastly, for topic modelling, the texts are processed (removing, for example, pronunciations, stop words, and numbers) and made in to a data frame which can be used for the analysis. This code showed that after processing five documents were removed from the analysis as there were no characters there anymore after stemming, removing stop words, punctuation, numbers.
 
 ### **Analysis**
 
@@ -180,7 +185,7 @@ data_climatechange$text_all[c(1288,7407,7725,8252,8891)]
 After examining the 20 most prominent posts for each topic and the corresponding top words, each topic was assigned a descriptive label. The labels and top words can be seen in Table 1.
 
 | Topic | Content | Top words |
-|----------------:|----------------------|---------------------------------|
+|------------------:|----------------------|-------------------------------|
 | 1 | Places | Citi, town, Washington, san, london, York, local, rural, nyc |
 | 2 | Vehicles | Car, bike, child, petrol, idl, drive, parent, walk, truck, great, road |
 | 3 | Extinction (animals) | Nanoparticle, smuggle, ozon, ozone-deplet, livestock, feed, cattl, beef, pig, moor |
@@ -224,6 +229,15 @@ After examining the 20 most prominent posts for each topic and the corresponding
 ```{r visualizations}
 #Plot topics
 plot(topic_model)
+
+#Bar plot
+ggplot(data_climatechange, aes(x=as.factor(Topic), fill = as.factor(subreddit)))+
+  geom_bar()+
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))+
+  labs(title= "Barplot of the distribution of Reddit posts between the topics and subreddits",
+       x= "Topics", 
+       y= "Frequency", 
+       fill =  "Subreddit")
 
 
 #Correlation plot
@@ -307,7 +321,8 @@ ggraph(for_network_plot, layout = "fr") +
                  expand =0.03,
                  color = NA) +
   scale_color_manual(values = cluster_colors) +
-  scale_fill_manual(values = cluster_colors) 
+  scale_fill_manual(values = cluster_colors) +
+  labs(title = "Network of the relationship between the topics shown in six clusters")
 
 
 #Wordclouds
@@ -371,7 +386,7 @@ topwords_long %>% subset(group == 4)%>%
 set.seed(159)
 #sample of 342 posts, the file of the sample can be downloaded from github
 #sample_annotate <- data_climatechange[sample(nrow(data_climatechange), size =342),]
-sample_annotate <- saveRDS(sample_annotate, "Data/sample_annotate.rds")
+sample_annotate <- readRDS("sample_annotate.rds")
 
 
 #for doing a coding job
@@ -379,10 +394,17 @@ units <- create_units(sample_annotate,
                       id = "id",
                       set_text("text", text_all))
 
+
 technique <- question("Neutralization technique", 
-                      "Does this post consist of a neuralization technique?",
-                      codes = c(crimson = "No",
-                                lightgreen = "Yes"))
+                      "Which neutralization technique is present in the post?",
+                      codes = c(crimson = "None",
+                                lightgreen = "Denial resp.",
+                                dodgerblue = "Denial injury",
+                                salmon = "Denial victim",
+                                plum = "Condemnation", 
+                                darkorange = "Higher loyalties",
+                                grey = "Other"
+                                ))
 
 codebook <- create_codebook(technique)
 
@@ -391,49 +413,86 @@ job_db <- create_job_db(job, overwrite = T)
 
 start_annotator(job_db)
 
-gimme_annotations(job_db)
 
 
-sample_codejob <- gimme_annotations(job_db)
-sample_codejob <- sample_codejob[,-c(2,3)]
+```
 
+```{r compare annotations}
+
+#Gather the annotations 
+Annotator_1 <-gimme_annotations(job_db)
+Annotator_1<- Annotator_1[,-c(2,3)]
+
+Annotator_2 <- readRDS("Annotator_2")
+Annotator_2 <- Annotator_2[,-c(2,3)]
+
+confusionMatrix(as.factor(Annotator_1$value), as.factor(Annotator_2$value))
+
+Annotated_combined <- Annotator_1 %>%
+  left_join(Annotator_2, by = "id") 
+
+Overlapping <- Annotated_combined[which(Annotated_combined$value.x == Annotated_combined$value.y),]
+
+Id<- c("mlgn0d","o80ltk","fg76pe","1ggtxr6","1etur0g")
+
+#The posts with the same annotated technique
+data_climatechange$text_all[data_climatechange$id %in% Id]
+
+#Adding the results in the data set
 coding <- data.frame(
   id = sapply(units, `[[`, "id"),
   text = sapply(units, function(x) x$unit$text_fields[[1]]$value),
   stringsAsFactors = FALSE
 )
 
-sample <- left_join(coding, sample_codejob, by= "id")
-sample <- sample[,-c(3,4)]
-colnames(sample)<- c("id", "text_all", "value")
 
-annotated_sample <- sample_annotate %>%
-  left_join(sample, by = "id")
+Annotated_data_with_text <-  Annotated_combined%>%
+  left_join(data_climatechange, by = "id")
 
 
 ```
 
 #### Code for classification
 
+Unfortunately due to time limitations this part of code was not added to the final study. The code here underneath is for classification of neutralization techniques used within posts. After annotating, the data can be used within a model which will classify the rest of the posts if it contains some sort of neutralization technique or not.
+
+> Note!
+>
+> Your annotated data needs to be big, or contain enough data on which the model can predict. If the distribution between containing a technique and not is out of balance, the model will look at the data and see that classifying posts as not containing a technique has a higher probability. This results in the model not predicting any posts containing a technique.
+
 ```{r training for classification}
-#train model for classifications, the test and train data can be found on github
-#divide_test_train <- createDataPartition(annotated_sample$value, p = 0.75, list = FALSE)
-#train <- annotated_sample[divide_test_train,]
-train <- readRDS("train.rds")
+set.seed(159)
 
-#test <- annotated_sample[-divide_test_train,]
+#Changing variable to a binary one. So it will be a variable stating if is does contain 
+Annotation_binary  <- annotated_sample
+Annotation_binary <- Annotation_binary %>%
+  mutate(binary = case_when(value %in% c(
+                            "Denial resp.",
+                            "Denial injury",
+                            "Denial victim",
+                            "Condemnation",
+                            "Higher loyalties",
+                            "Other"
+                          ) ~ "Yes",
+                          value == "None" ~ "No"))
 
-test <- readRDS("test.rds")
+#Deviding the data in to testing (30%) and training (70%)
+divide_test_train <- createDataPartition(Annotation_binary$binary, p = 0.70, list = FALSE)
+train <- Annotation_binary[divide_test_train,]
+test <- Annotation_binary[-divide_test_train,]
 
-#the distribution between the two sets
-ggplot() + geom_bar(data = train, aes(x = value), fill = "blue", alpha = .5) + geom_bar(data = test, aes(x = value),fill = "red", alpha = .5) + theme_bw() + labs(color = "Density", title = "Random Sampling (Caret package)",
-    x = "yes/no")
+
+#The distribution between the two sets
+ggplot() + 
+  geom_bar(data = train, aes(x = binary), fill = "blue", alpha = .5) + 
+  geom_bar(data = test, aes(x = binary),fill = "red", alpha = .5) +
+  labs(color = "Density", title = "Random Sampling Distribution")
 
 
-#prepping for training and testing
+#Prepping for training and testing
 #cleaning
 tokens_train <- train %>%
-  mutate(text = str_remove_all(text_all, "https?://\\S+")) %>%
+  mutate(text = str_remove_all(text_all.y, "https?://\\S+")) %>%
   unnest_tokens(word, text) %>%
   mutate(
     word = str_remove_all(word, "@\\S+"),
@@ -449,7 +508,7 @@ tokens_train <- train %>%
 
 
 tokens_test <- test %>%
-  mutate(text = str_remove_all(text_all, "https?://\\S+")) %>%
+  mutate(text = str_remove_all(text_all.y, "https?://\\S+")) %>%
   unnest_tokens(word, text) %>%
   mutate(
     word = str_remove_all(word, "@\\S+"),
@@ -496,18 +555,16 @@ for (col in missing_cols) {
 
 
 #adding the labels
-colnames(train)<- c("doc_id", "subreddit", "created_utc", "author", "title", "selftext","retrieved_on", "score", "url", "text_all", "Topic", "text", "value") 
-
+train <- rename(train, doc_id = id)
 train_ml <- dtm_train %>%
-  left_join(train %>% select(doc_id, value), by = "doc_id")
+  left_join(train %>% select(doc_id, binary), by = "doc_id")
 
-colnames(test)<- c("doc_id", "subreddit", "created_utc", "author", "title", "selftext","retrieved_on", "score", "url", "text_all", "Topic", "text", "value") 
-
+test <- rename(test, doc_id = id)
 test_ml <- dtm_test %>%
-  left_join(test %>% select(doc_id, value), by = "doc_id")
+  left_join(test %>% select(doc_id, binary), by = "doc_id")
 
-train_ml$value.y <- as.factor(train_ml$value.y)
-test_ml$value.y  <- as.factor(test_ml$value.y)
+train_ml$binary <- as.factor(train_ml$binary)
+test_ml$binary  <- as.factor(test_ml$binary)
 
 
 
@@ -520,20 +577,18 @@ control <- trainControl(
 )
 
 
-#training
+#Training
 train_model <- train(
-  value.y ~ .,
+  binary ~ .,
   data = train_ml %>% select(-doc_id),
   method = "glmnet",  
   trControl = control,
   metric = "ROC"
 )
 
-
-#predict and evaluate 
+#Predict and evaluate 
 prediction_model <- predict(train_model, test_ml)
-confusionMatrix(prediction_model, test_ml$value.y)
-
-prob <- predict(train_model, test_ml, type = "prob")
+confusionMatrix(prediction_model, test_ml$binary)
+freq(test$binary)#this shows how the distribution of the techniques of golden standard (binary)
 
 ```
