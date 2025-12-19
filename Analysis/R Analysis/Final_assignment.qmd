@@ -184,7 +184,7 @@ data_climatechange$text_all[c(1288,7407,7725,8252,8891)]
 After examining the 20 most prominent posts for each topic and the corresponding top words, each topic was assigned a descriptive label. The labels and top words can be seen in Table 1.
 
 | Topic | Content | Top words |
-|------------------:|----------------------|-------------------------------|
+|---:|----|----|
 | 1 | Places | Citi, town, Washington, san, london, York, local, rural, nyc |
 | 2 | Vehicles | Car, bike, child, petrol, idl, drive, parent, walk, truck, great, road |
 | 3 | Extinction (animals) | Nanoparticle, smuggle, ozon, ozone-deplet, livestock, feed, cattl, beef, pig, moor |
