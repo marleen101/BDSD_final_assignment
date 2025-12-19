@@ -1,5 +1,6 @@
 # BDSD final assignment
-<img src="Reddit_photo.png" width="400" height="400">   
+<img src="Reddit_photo.png" width="400" height="400">    
+
 This is the Github repository of the Final Assignment of the _Big Data, Small Data_ course of the Master's program _Social sciences for a Digital Society_. This assignment is about the usage of neutralization techniques by Reddit users posting on the subreddits r/climate, r/climatechange and r/environment. For this assignment, data was downloaded, via arctic shift[^1]. The data are Reddit posts on these subreddit, which were posted from January 1<sup>st</sup> 2020 to November 30<sup>th</sup> 2025. Structural Topic Model (STM) and Critical Discourse Analysis (CDA) were used for the analysis. 
 
 ## Overview of the repository
