@@ -41,10 +41,9 @@ library(psych)
 
 ### **Importing data from Github**
 
-```{r from github}
+```{r from github, message=FALSE}
 
-data_climatechange <- read_csv("https://raw.githubusercontent.com/marleen101/BDSD_final_assignment/refs/heads/main/R%20Analysis/data_climatechange.csv")
-
+data_climatechange <- read_csv("https://raw.githubusercontent.com/marleen101/BDSD_final_assignment/refs/heads/main/Data/Data%20Climate%20Change/data_climatechange.csv")
 
 ```
 
@@ -93,7 +92,7 @@ K_climate <- seq(10,60,by = 10) # for calculating the exclusivity and coherence 
 #code underneath is for creating different models with different amount of topics. It is possible to download the R Data file via the github page to save some time. The file is placed under the map Data and Topic model (file "fit_climate.rds").
 
 ####fit_climate <- searchK(processed$documents, processed$vocab, K= K_climate)
-#fit_climate <- readRDS("fit_climate.rds")
+fit_climate <- readRDS("fit_climate.rds")
 
 # Making the scores of Coherence and Exclusivity for each amount of topic
 plot_climate <- data.frame("K" = K_climate, 
@@ -246,8 +245,7 @@ cor <- topicCorr(topic_model)
 plot(cor)
 
 #Network analysis with clusters
-network <- cor$cor
-network_pos <- network
+network_pos <- cor$cor
 network_pos[network_pos < 0] <- 0
 
 for_network_plot <- graph_from_adjacency_matrix(
@@ -294,7 +292,7 @@ cluster_manual <- c(
   "35"= "Emotions")
 
 V(for_network_plot)$name <- as.character(1:vcount(for_network_plot))
-V(for_network_plot)$cluster <- cluster_manual[V(for_network_plot)$name]
+V(for_network_plot)$Cluster <- cluster_manual[V(for_network_plot)$name]
 V(for_network_plot)$name <- paste0("Topic ", V(for_network_plot)$name)
 
 cluster_colors <- c(
@@ -310,12 +308,12 @@ ggraph(for_network_plot, layout = "fr") +
   geom_edge_link(aes(width = weight), 
                  alpha = 0.3, 
                  colour = "grey30") +
-  geom_node_point(aes(color = cluster),
+  geom_node_point(aes(color = Cluster),
                   size = 5) +
   geom_node_text(aes(label = name), 
                  repel = TRUE, 
                  size = 3) +
-  geom_mark_hull(aes(x = x, y = y, group = cluster, fill = cluster), 
+  geom_mark_hull(aes(x = x, y = y, group = Cluster, fill = Cluster), 
                  alpha = 0.3, 
                  concavity = 1, 
                  expand =0.03,
@@ -409,31 +407,41 @@ technique <- question("Neutralization technique",
 codebook <- create_codebook(technique)
 
 job <- create_job("codejob_technique", units, codebook)
-job_db <- create_job_db(job, overwrite = T)
+job_db <- create_job_db(job)
 
 start_annotator(job_db)
-
-
 
 ```
 
 ```{r compare annotations}
-
 #Gather the annotations 
-Annotator_1 <-gimme_annotations(job_db)
+#from Github
+Annotator_1 <- readRDS("Annotator_1.rds")
 Annotator_1<- Annotator_1[,-c(2,3)]
 
 Annotator_2 <- readRDS("Annotator_2")
 Annotator_2 <- Annotator_2[,-c(2,3)]
+
+#When done with annotinder package
+#Annotator_1 <- gimme_annotations(job_db)
 
 confusionMatrix(as.factor(Annotator_1$value), as.factor(Annotator_2$value))
 
 Annotated_combined <- Annotator_1 %>%
   left_join(Annotator_2, by = "id") 
 
+Not_overlapping <- Annotated_combined[which(Annotated_combined$value.x != Annotated_combined$value.y),]
+
+
+Id_error_analysis <- c("l6e673", "1ihsr2h", "1avueog", "volodh", "n36t2i", "myfqge", "u9odal", "1jnd905", "y9hrsi", "q2uk3i", "kvcmek", "1je1dck", "1g0mr94", "u0o4mt", "izj39e", "1cq8ph5")
+
+#Posts for error analysis
+data_climatechange$text_all[data_climatechange$id %in% Id_error_analysis]
+
 Overlapping <- Annotated_combined[which(Annotated_combined$value.x == Annotated_combined$value.y),]
 
 Id<- c("mlgn0d","o80ltk","fg76pe","1ggtxr6","1etur0g")
+
 
 #The posts with the same annotated technique
 data_climatechange$text_all[data_climatechange$id %in% Id]
@@ -448,6 +456,27 @@ coding <- data.frame(
 
 Annotated_data_with_text <-  Annotated_combined%>%
   left_join(data_climatechange, by = "id")
+
+
+
+Annotated_data_with_text$text_all[Annotated_data_with_text$value.y =="Condemnation"]
+
+
+
+
+#Visualizations of annotations
+
+ggplot(Annotated_data_with_text)+
+  geom_bar(aes(x=value.y, fill = "Annotator 2"), alpha=.6)+
+  geom_bar(aes(x=value.x, fill = "Annotator 1"), alpha=.6)+
+  scale_fill_manual(values = c("Annotator 1" = "coral1",
+                               "Annotator 2" = "seagreen"))+
+  labs(title = "Annotated labels by the two annotators",
+       fill =  "Annotator",
+       x= "Label",
+       y="Frequency")
+
+
 
 
 ```
